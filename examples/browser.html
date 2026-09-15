@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>BuhGPT Статус — пример на JavaScript</title>
+<p id="esf">Проверяем ИС ЭСФ…</p>
+<p><small id="source"></small></p>
+<script>
+  // CORS открыт для любых сайтов. Данные: BuhGPT Статус — buhgpt.kz/status
+  fetch("https://buhgpt.kz/status/api/pulse/v1/context?service=esf&lang=ru")
+    .then((r) => r.json())
+    .then((s) => {
+      const el = document.getElementById("esf");
+      el.textContent = `${s.service_name}: ${s.status_label}. ${s.advice}`;
+      if (s.is_problem_on_provider_side) el.style.color = "#c0392b";
+      const src = document.getElementById("source");
+      const a = document.createElement("a");
+      a.href = s.source_url;
+      a.textContent = s.attribution;
+      src.appendChild(a);
+    })
+    .catch(() => { document.getElementById("esf").textContent = "BuhGPT Статус сейчас недоступен"; });
+</script>
+</html>

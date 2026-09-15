@@ -1,0 +1,23 @@
+name: Добавить систему / Жүйе қосу
+description: Предложите систему, которую стоит проверять · Тексеру керек жүйені ұсыныңыз
+labels: [new-system]
+body:
+  - type: input
+    id: system
+    attributes:
+      label: Система / Жүйе
+      placeholder: Например, ИС «Электронные акты» / Мысалы, «Электрондық актілер» АЖ
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Официальный сайт / Ресми сайт
+      placeholder: https://
+  - type: textarea
+    id: why
+    attributes:
+      label: Зачем бухгалтеру / Бухгалтерге не үшін керек
+      description: Что перестаёт работать у бухгалтера, когда эта система не отвечает? · Бұл жүйе жауап бермегенде бухгалтерде не тоқтайды?
+    validations:
+      required: true

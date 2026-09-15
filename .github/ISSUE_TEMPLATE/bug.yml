@@ -1,0 +1,24 @@
+name: Ошибка в данных или API / Деректердегі немесе API қатесі
+description: Неверный статус, ошибка в ответе API, виджет не работает · Қате күй, API қатесі, виджет жұмыс істемейді
+labels: [bug]
+body:
+  - type: input
+    id: what
+    attributes:
+      label: Что не так / Не дұрыс емес
+    validations:
+      required: true
+  - type: input
+    id: request
+    attributes:
+      label: Запрос или страница / Сұрау немесе бет
+      placeholder: GET /context?service=esf или адрес сайта с виджетом
+  - type: input
+    id: when
+    attributes:
+      label: Когда (время Астаны) / Қашан (Астана уақыты)
+      placeholder: 15.09.2026 10:40
+  - type: textarea
+    id: details
+    attributes:
+      label: Подробности / Толығырақ

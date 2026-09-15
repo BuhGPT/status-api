@@ -1,0 +1,576 @@
+openapi: 3.1.0
+info:
+  title: BuhGPT Статус API
+  version: "1.0.0"
+  summary: Работает ли сейчас ИС ЭСФ, СНТ, НУЦ РК (ЭЦП), КНП, eGov, 1С:Fresh, банки и ОФД — открытые данные BuhGPT.
+  description: |
+    Бесплатное открытое API независимого мониторинга систем, без которых бухгалтер в Казахстане не может работать.
+    Те же данные, что на странице https://buhgpt.kz/status/ — живые проверки, инциденты с длительностью,
+    обновления и технические работы, история за 90 дней.
+
+    **Язык ответа.** Параметр `lang=kk|ru` → если его нет, заголовок `Accept-Language` → иначе казахский.
+    Язык указан в поле `lang` и в заголовке `Content-Language`.
+
+    **Источник.** Каждый ответ содержит блок `provider` и заголовок `X-Data-Provider`. Показывая данные людям,
+    выводите рядом `provider.attribution` («Данные: BuhGPT Статус — buhgpt.kz/status»).
+
+    **Лимиты.** 120 запросов в минуту с одного IP. Данные обновляются раз в 1–5 минут — опрашивать чаще
+    раза в 30 секунд не нужно.
+
+    Это независимые автоматические проверки, а не официальный источник госорганов и банков.
+  contact:
+    name: BuhGPT
+    url: https://buhgpt.kz/status/api.html
+  license:
+    name: Данные — бесплатно с указанием источника «BuhGPT Статус»
+    url: https://github.com/BuhGPT/status-api/blob/main/DATA-TERMS.md
+externalDocs:
+  description: Документация на казахском и русском
+  url: https://buhgpt.kz/status/api.html
+servers:
+  - url: https://buhgpt.kz/status/api/pulse/v1
+tags:
+  - name: status
+    description: Текущий статус
+  - name: history
+    description: История, инциденты, обновления
+  - name: embed
+    description: Виджеты и бейджи для сайтов
+
+paths:
+  /context:
+    get:
+      tags: [status]
+      operationId: getContext
+      summary: Короткий ответ по одной системе с готовым советом для пользователя
+      description: Лучший вариант для 1С, ботов и чатов.
+      parameters:
+        - $ref: "#/components/parameters/service"
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Статус системы
+          headers:
+            X-Data-Provider: { $ref: "#/components/headers/X-Data-Provider" }
+            Content-Language: { $ref: "#/components/headers/Content-Language" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Context" }
+              example:
+                lang: ru
+                service_id: esf
+                service_name: ИС ЭСФ
+                service_kind: gov
+                attribution: "Данные: BuhGPT Статус — buhgpt.kz/status"
+                status: OPERATIONAL
+                status_label: Работает
+                is_problem_on_provider_side: false
+                measured_at: 1789426951
+                data_age_s: 35
+                fresh: true
+                reason: null
+                incident: null
+                announcements: []
+                advice: "По данным BuhGPT Статус, «ИС ЭСФ» сейчас работает. Причина ошибки, скорее всего, на стороне пользователя: ЭЦП, NCALayer, настройки 1С или интернет."
+                source_url: https://buhgpt.kz/status/ru/esf/
+                provider:
+                  name: BuhGPT Статус
+                  by: BuhGPT
+                  url: https://buhgpt.kz/status/ru/
+                  api_docs: https://buhgpt.kz/status/ru/api.html
+                  attribution: "Данные: BuhGPT Статус — buhgpt.kz/status"
+                  terms: "Бесплатно. Указывайте источник рядом с данными: «BuhGPT Статус» и ссылку на buhgpt.kz/status."
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /summary:
+    get:
+      tags: [status]
+      operationId: getSummary
+      summary: Все системы по группам
+      description: Статус, время проверки, сообщения пользователей за час, последний сбой и его длительность, текущие инциденты, объявленные работы.
+      parameters:
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Сводка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Summary" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /services/{id}:
+    get:
+      tags: [status]
+      operationId: getService
+      summary: Подробно по системе
+      description: Доступность за сутки, 7, 30 и 90 дней, простой, инциденты, обновления, время ответа за сутки, сообщения пользователей за 2 часа по 10 минут.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ServiceId" }
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Карточка системы
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /uptime:
+    get:
+      tags: [history]
+      operationId: getUptime
+      summary: История по дням для каждой системы
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 90 }
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Итог каждого дня (время — Астана, UTC+5)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Uptime" }
+
+  /incidents:
+    get:
+      tags: [history]
+      operationId: listIncidents
+      summary: Инциденты с хронологией и длительностью
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 14 }
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Список инцидентов
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [incidents, provider]
+                properties:
+                  incidents: { type: array, items: { $ref: "#/components/schemas/Incident" } }
+                  provider: { $ref: "#/components/schemas/Provider" }
+
+  /incidents/{id}:
+    get:
+      tags: [history]
+      operationId: getIncident
+      summary: Один инцидент — данные «Справки о фиксации инцидента»
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, example: kaspi-1789416487 }
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Инцидент
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Incident"
+                  - type: object
+                    properties:
+                      reports_total: { type: integer, description: Разных сетей, сообщивших о проблеме }
+                      related_update:
+                        type: [object, "null"]
+                        description: Обновление, вышедшее незадолго до сбоя
+                      provider: { $ref: "#/components/schemas/Provider" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /announcements:
+    get:
+      tags: [history]
+      operationId: listAnnouncements
+      summary: Обновления, технические работы и объявления операторов
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 365, default: 90 }
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Объявления
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [announcements, provider]
+                properties:
+                  announcements: { type: array, items: { $ref: "#/components/schemas/Announcement" } }
+                  provider: { $ref: "#/components/schemas/Provider" }
+
+  /checks:
+    get:
+      tags: [status]
+      operationId: listChecks
+      summary: Что проверяется по каждой системе и как часто
+      parameters:
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Описание проверок простыми словами
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        services:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: { $ref: "#/components/schemas/ServiceId" }
+                              name: { type: string }
+                              checks: { type: array, items: { type: string } }
+                              interval_s: { type: integer }
+                              announcement_sources: { type: array, items: { type: string } }
+                              tracks_versions: { type: boolean }
+                              last_checked_at: { type: [integer, "null"] }
+                  provider: { $ref: "#/components/schemas/Provider" }
+
+  /widget:
+    get:
+      tags: [embed]
+      operationId: getWidget
+      summary: Лёгкий ответ для виджета (кэш 30 секунд)
+      description: Используется скриптом https://buhgpt.kz/status/widget.js. Удобен и для своих виджетов.
+      parameters:
+        - name: services
+          in: query
+          description: Идентификаторы или адреса страниц систем через запятую, до 12. По умолчанию — ключевые системы.
+          schema: { type: string, example: "esf,fresh_ea,nuc,kaspi" }
+        - $ref: "#/components/parameters/lang"
+      responses:
+        "200":
+          description: Статусы выбранных систем и активные предупреждения
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Widget" }
+
+components:
+  parameters:
+    lang:
+      name: lang
+      in: query
+      description: Язык текстов. Без параметра — по заголовку Accept-Language, иначе казахский.
+      schema: { type: string, enum: [kk, ru] }
+    service:
+      name: service
+      in: query
+      required: true
+      schema: { $ref: "#/components/schemas/ServiceId" }
+
+  headers:
+    X-Data-Provider:
+      description: Источник данных
+      schema: { type: string, example: "BuhGPT Status; https://buhgpt.kz/status/" }
+    Content-Language:
+      description: Язык ответа
+      schema: { type: string, enum: [kk, ru] }
+
+  responses:
+    NotFound:
+      description: Неизвестная система или инцидент
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: unknown_service }
+              known: { type: array, items: { type: string } }
+              provider: { $ref: "#/components/schemas/Provider" }
+    RateLimited:
+      description: Больше 120 запросов в минуту с одного IP
+      headers:
+        Retry-After: { schema: { type: integer, example: 60 } }
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: rate_limited }
+              limit_per_minute: { type: integer, example: 120 }
+              provider: { $ref: "#/components/schemas/Provider" }
+
+  schemas:
+    ServiceId:
+      type: string
+      description: Идентификатор системы. Полный список — SERVICES.md.
+      example: esf
+
+    Status:
+      type: string
+      enum: [OPERATIONAL, DEGRADED, PARTIAL_OUTAGE, MAJOR_OUTAGE, MAINTENANCE, UNKNOWN]
+      description: |
+        OPERATIONAL — работает; DEGRADED — задержки или нестабильность; PARTIAL_OUTAGE — часть функций недоступна;
+        MAJOR_OUTAGE — сбой; MAINTENANCE — объявленные технические работы; UNKNOWN — нет свежих данных (не считайте это сбоем).
+
+    Provider:
+      type: object
+      required: [name, by, url, attribution]
+      description: Есть в каждом ответе API, включая ошибки.
+      properties:
+        name: { type: string, example: BuhGPT Статус }
+        by: { type: string, example: BuhGPT }
+        url: { type: string, format: uri }
+        api_docs: { type: string, format: uri }
+        attribution: { type: string, example: "Данные: BuhGPT Статус — buhgpt.kz/status" }
+        terms: { type: string }
+
+    Context:
+      type: object
+      required: [lang, service_id, service_name, status, status_label, is_problem_on_provider_side, fresh, advice, attribution, provider]
+      properties:
+        lang: { type: string, enum: [kk, ru] }
+        service_id: { $ref: "#/components/schemas/ServiceId" }
+        service_name: { type: string }
+        service_kind: { type: string, enum: [gov, bank, fiscal, cloud, infra] }
+        attribution: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        status_label: { type: string }
+        is_problem_on_provider_side: { type: boolean, description: "true при сбое или работах на стороне системы" }
+        measured_at: { type: [integer, "null"], description: Unix-время последней проверки (UTC) }
+        data_age_s: { type: [integer, "null"] }
+        fresh: { type: boolean, description: Данные свежие (если false — статус UNKNOWN) }
+        reason: { type: [string, "null"], description: Что именно не проходит }
+        incident:
+          type: [object, "null"]
+          properties:
+            title: { type: string }
+            stage_label: { type: string }
+            started_at: { type: integer }
+        announcements: { type: array, items: { $ref: "#/components/schemas/Announcement" } }
+        advice: { type: string, description: Готовый совет пользователю, начинается со ссылки на BuhGPT Статус }
+        source_url: { type: string, format: uri }
+        provider: { $ref: "#/components/schemas/Provider" }
+
+    LastIncident:
+      type: [object, "null"]
+      description: Последний сбой за 90 дней — когда начался и сколько длилось ограничение доступа
+      properties:
+        started_at: { type: integer }
+        duration_s: { type: integer }
+        ongoing: { type: boolean }
+
+    Service:
+      type: object
+      properties:
+        id: { $ref: "#/components/schemas/ServiceId" }
+        name: { type: string }
+        description: { type: string }
+        kind: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        status_label: { type: string }
+        measured_at: { type: [integer, "null"] }
+        data_age_s: { type: [integer, "null"] }
+        reason: { type: [string, "null"] }
+        ttfb_ms: { type: [integer, "null"], description: Медианное время ответа }
+        reports_1h: { type: integer, description: Разных сетей, сообщивших о проблеме за час }
+        last_incident: { $ref: "#/components/schemas/LastIncident" }
+        site: { type: [string, "null"], format: uri, description: Официальный сайт системы }
+        page: { type: string, description: Страница системы на buhgpt.kz/status (относительный путь) }
+        open_incident:
+          type: [object, "null"]
+          properties:
+            id: { type: string }
+            stage_label: { type: string }
+            started_at: { type: integer }
+        active_announcements: { type: array, items: { $ref: "#/components/schemas/Announcement" } }
+
+    Summary:
+      type: object
+      properties:
+        lang: { type: string }
+        generated_at: { type: integer }
+        measured_at: { type: [integer, "null"] }
+        monitoring_since: { type: [integer, "null"] }
+        overall:
+          type: object
+          properties:
+            indicator: { type: string, enum: [none, minor, maintenance, partial, major, unknown] }
+            description: { type: string }
+        bii:
+          type: object
+          description: Работоспособность ключевых систем, % (взвешено по важности для бухгалтера)
+          properties:
+            score: { type: [number, "null"] }
+            coverage_pct: { type: integer }
+            label: { type: string }
+        active_incidents: { type: array, items: { $ref: "#/components/schemas/Incident" } }
+        upcoming: { type: array, items: { $ref: "#/components/schemas/Announcement" } }
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              hint: { type: string }
+              services: { type: array, items: { $ref: "#/components/schemas/Service" } }
+        provider: { $ref: "#/components/schemas/Provider" }
+
+    ServiceDetail:
+      type: object
+      properties:
+        service:
+          type: object
+          properties:
+            id: { $ref: "#/components/schemas/ServiceId" }
+            name: { type: string }
+            description: { type: string }
+            kind: { type: string }
+            depends_on: { type: array, items: { type: string } }
+        state:
+          type: object
+          properties:
+            status: { $ref: "#/components/schemas/Status" }
+            status_label: { type: string }
+            measured_at: { type: [integer, "null"] }
+            reason: { type: [string, "null"] }
+        stats:
+          type: object
+          properties:
+            uptime:
+              type: object
+              description: Доступность, % за 1, 7, 30 и 90 дней
+              additionalProperties: { type: [number, "null"] }
+            outage_minutes_90d: { type: integer }
+            degraded_minutes_90d: { type: integer }
+            maintenance_minutes_90d: { type: integer }
+            incidents_90d: { type: integer }
+            updates_90d: { type: integer }
+        latency_24h:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: object, properties: { ts: { type: integer }, ttfb_ms: { type: integer } } }
+        incidents: { type: array, items: { $ref: "#/components/schemas/Incident" } }
+        announcements: { type: array, items: { $ref: "#/components/schemas/Announcement" } }
+        reports_2h:
+          type: array
+          items: { type: object, properties: { symptom: { type: string }, count: { type: integer } } }
+        reports_timeline:
+          type: array
+          description: 12 интервалов по 10 минут — разных сетей с жалобами
+          items: { type: object, properties: { ts: { type: integer }, networks: { type: integer } } }
+        provider: { $ref: "#/components/schemas/Provider" }
+
+    Uptime:
+      type: object
+      properties:
+        days: { type: array, items: { type: string, format: date } }
+        services:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              uptime: { type: [number, "null"] }
+              measured_min: { type: integer }
+              days:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    day: { type: string, format: date }
+                    status: { oneOf: [{ $ref: "#/components/schemas/Status" }, { type: "null" }] }
+                    uptime: { type: [number, "null"] }
+                    down_min: { type: integer }
+                    partial_min: { type: integer }
+                    degraded_min: { type: integer }
+                    maintenance_min: { type: integer }
+                    measured_min: { type: integer }
+                    incidents: { type: integer }
+                    announcements: { type: array, items: { type: object, properties: { kind: { type: string }, title: { type: string } } } }
+        provider: { $ref: "#/components/schemas/Provider" }
+
+    Incident:
+      type: object
+      properties:
+        id: { type: string }
+        service_id: { $ref: "#/components/schemas/ServiceId" }
+        service_name: { type: string }
+        title: { type: string }
+        impact: { type: string, enum: [major, partial] }
+        stage: { type: string, enum: [investigating, identified, monitoring, resolved] }
+        stage_label: { type: string }
+        started_at: { type: integer }
+        monitoring_at: { type: [integer, "null"] }
+        resolved_at: { type: [integer, "null"] }
+        ongoing: { type: boolean }
+        duration_s: { type: integer, description: Длительность ограничения доступа (для идущего — на текущий момент) }
+        failed_checks: { type: array, items: { type: string } }
+        nodes:
+          type: array
+          items: { type: object, properties: { name: { type: string }, location: { type: string }, in_kz: { type: boolean } } }
+        updates:
+          type: array
+          items:
+            type: object
+            properties:
+              ts: { type: integer }
+              stage: { type: string }
+              stage_label: { type: string }
+              body: { type: string }
+
+    Announcement:
+      type: object
+      properties:
+        id: { type: string }
+        service_id: { $ref: "#/components/schemas/ServiceId" }
+        service_name: { type: string }
+        kind: { type: string, enum: [update, maintenance, outage_notice, restored] }
+        kind_label: { type: string }
+        title: { type: string }
+        body: { type: [string, "null"] }
+        version: { type: [string, "null"] }
+        starts_at: { type: integer }
+        ends_at: { type: [integer, "null"] }
+        source: { type: string, enum: [fresh_news, auto_version, manual] }
+        source_url: { type: [string, "null"], format: uri }
+        active: { type: boolean }
+
+    Widget:
+      type: object
+      properties:
+        lang: { type: string }
+        generated_at: { type: integer }
+        title: { type: string }
+        services:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { $ref: "#/components/schemas/ServiceId" }
+              name: { type: string }
+              status: { $ref: "#/components/schemas/Status" }
+              status_label: { type: string }
+              status_short: { type: string }
+              reports_1h: { type: integer }
+              page: { type: string, format: uri }
+              incident:
+                type: [object, "null"]
+                properties:
+                  started_at: { type: integer }
+                  duration_s: { type: integer }
+                  stage: { type: string }
+              alert: { type: boolean, description: Подтверждённый сбой или объявленные работы }
+              advice: { type: [string, "null"] }
+        alerts: { type: array, items: { type: object } }
+        worst_status: { $ref: "#/components/schemas/Status" }
+        home: { type: string, format: uri }
+        provider: { $ref: "#/components/schemas/Provider" }
