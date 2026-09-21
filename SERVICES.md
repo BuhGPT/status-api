@@ -86,6 +86,7 @@ _Список формируется из каталога BuhGPT Статус. 
 | `stat` | Кабинет респондента (статистика) | Респонденттің кабинеті (статистика) | [kabinet-respondenta](https://buhgpt.kz/status/kabinet-respondenta/) | ![](https://buhgpt.kz/status/badge/kabinet-respondenta.svg?lang=ru) |
 | `efinance` | eFinance | eFinance | [efinance](https://buhgpt.kz/status/efinance/) | ![](https://buhgpt.kz/status/badge/efinance.svg?lang=ru) |
 | `elicense` | eLicense | eLicense | [elicense](https://buhgpt.kz/status/elicense/) | ![](https://buhgpt.kz/status/badge/elicense.svg?lang=ru) |
+| `kazyna` | Казначейство-клиент | Қазынашылық-клиент | [kaznachejstvo-klient](https://buhgpt.kz/status/kaznachejstvo-klient/) | ![](https://buhgpt.kz/status/badge/kaznachejstvo-klient.svg?lang=ru) |
 
 ## Связь и хостинг · Байланыс және хостинг
 
